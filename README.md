@@ -1,70 +1,100 @@
-# Medipol META AI Hackathon — Team Starter Kit
+# TruthNet Backend
 
-**Event:** May 17, 2026 · 7 hours · Medipol Kavacık Güney Kampüsü
+TruthNet is a four-agent fact-checking backend:
 
-This repo is your copy-paste foundation for hackathon day. Goal: everyone runs the same stack before you arrive.
-
-## Quick start (each teammate, tonight)
-
-```powershell
-cd medipol-hackathon
-.\scripts\setup.ps1
-# Edit .env with real API keys
-python scripts\verify_setup.py
-streamlit run frontend\streamlit_openai_app.py
+```text
+Agent A -> Agent B + Agent C in parallel -> Agent D
 ```
 
-## Project layout
+- Agent A extracts structured claims.
+- Agent B builds the prosecution/debunking case.
+- Agent C builds the strongest honest defense/context case.
+- Agent D synthesizes the final verdict.
 
+## Setup
+
+```bash
+cd "/Users/selim/Documents/New project"
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
-medipol-hackathon/
-  backend/          FastAPI (optional if using Streamlit-only)
-  frontend/         Streamlit apps — pick one and fork it
-  models/           Hugging Face helpers
-  data/             Sample CSVs / demo images
-  scripts/          setup.ps1, verify_setup.py
-  docs/             TEAM_PREP, DAY_OF, prompts, slides outline
+
+Real API keys live in `.env`. Do not commit or paste that file.
+
+## Terminal Demo
+
+```bash
+python truthnet_terminal.py
+python truthnet_terminal.py "does israel have nukes"
 ```
 
-## Which frontend to use tomorrow?
+## API Server
 
-| Track | Start from |
-|-------|------------|
-| Generative AI | `frontend/streamlit_openai_app.py` |
-| Image Processing | `frontend/streamlit_image_app.py` |
-| Data Prediction | `frontend/streamlit_prediction_app.py` |
-
-## Run commands
-
-```powershell
-# Generative UI
-streamlit run frontend/streamlit_openai_app.py
-
-# API only
+```bash
 uvicorn backend.main:app --reload --port 8000
-
-# Health check
-curl http://localhost:8000/health
 ```
 
-## Docs checklist
+Health:
 
-- [ ] Read `docs/TEAM_OF_5.md` — assign all 5 names & presenter
-- [ ] Read `docs/TEAM_PREP.md` — theme fallbacks & API keys
-- [ ] Read `docs/DAY_OF.md` — pin schedule in group chat
-- [ ] Skim `docs/VIBE_CODING_PROMPTS.md` in Cursor
-- [ ] Create GitHub repo & add teammates
-
-## Pre-event checklist
-
-```
-[ ] Python 3.10+
-[ ] venv + pip install -r requirements.txt
-[ ] .env with OPENAI_API_KEY (tested)
-[ ] streamlit demo runs locally
-[ ] Roles & presenter chosen
-[ ] Phone hotspot tested
-[ ] Laptop charged
+```bash
+curl http://127.0.0.1:8000/
+curl http://127.0.0.1:8000/health
 ```
 
-Good luck — narrow scope, working demo, strong story.
+Backward-compatible JSON verdict:
+
+```bash
+curl -X POST http://127.0.0.1:8000/fact-check \
+  -H "Content-Type: application/json" \
+  -d '{"claim":"does israel have nukes"}'
+```
+
+React/SSE contract:
+
+```bash
+curl -N -X POST http://127.0.0.1:8000/fact-check \
+  -H "Content-Type: application/json" \
+  -d '{"user_input":"does israel have nukes"}'
+```
+
+SSE status order:
+
+```text
+agent_a_running
+agent_a_done
+agents_bc_running
+agents_bc_done
+agent_d_running
+agent_d_done
+result
+```
+
+## Mock Mode
+
+Mock mode tests orchestration without live model calls:
+
+```bash
+TRUTHNET_MOCK=1 python scripts/test_pipeline.py
+TRUTHNET_MOCK=1 python scripts/test_pipeline.py --all-demos
+```
+
+For HTTP SSE smoke testing, start the server with mock mode enabled:
+
+```bash
+TRUTHNET_MOCK=1 uvicorn backend.main:app --reload --port 8000
+python scripts/test_sse_http.py
+```
+
+## Configuration
+
+Useful `.env` flags:
+
+```env
+TRUTHNET_MOCK=0
+TRUTHNET_TIMEOUT_A=8
+TRUTHNET_TIMEOUT_BC=16
+TRUTHNET_TIMEOUT_D=30
+ANTHROPIC_DISABLE_WEB_SEARCH=false
+```
+
+The current live split is configured through per-agent provider/model flags in `.env`.

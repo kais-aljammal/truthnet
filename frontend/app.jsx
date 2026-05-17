@@ -317,7 +317,7 @@ function ClaimEcho({ text }) {
   );
 }
 
-function ErrorState({ onRetry }) {
+function ErrorState({ onRetry, message }) {
   return (
     <div className="my-12" style={{
       background: "var(--v-false-bg)",
@@ -329,8 +329,7 @@ function ErrorState({ onRetry }) {
         The agent panel could not complete the judgment.
       </div>
       <p style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: TN.ink2 }}>
-        The backend stream returned an error before all four agents reported. Try again, or load
-        the demo verdict to inspect the interface.
+        {message || "The backend stream returned an error before all four agents reported. Try again after confirming the backend is running."}
       </p>
       <button onClick={onRetry} className="mt-4 px-3 py-1.5"
               style={{ fontFamily: "Inter, sans-serif", fontSize: 12, background: TN.ink, color: TN.bg }}>
@@ -408,11 +407,16 @@ function App() {
   const [status, setStatus] = useState("idle");
   const [step, setStep] = useState(0);
   const [result, setResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem("truthnet-theme") || "light"; }
     catch { return "light"; }
   });
   const timersRef = useRef([]);
+  const requestRef = useRef(null);
+  const backendLabel = window.location.protocol === "file:"
+    ? "127.0.0.1:8000"
+    : window.location.host;
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -428,73 +432,125 @@ function App() {
     timersRef.current = [];
   };
 
-  // =========================================================================
-  // BACKEND INTEGRATION POINT — Member 3 / backend AI: replace this function
-  // =========================================================================
-  // Current behaviour: pure mock using setTimeout to simulate pipeline steps.
-  // Replace with:
-  //   1. SSE EventSource → GET http://localhost:8000/fact-check/stream?text=<encoded>
-  //      Listen for events: "agent_a_done" → setStep(1)
-  //                         "agents_bc_running" → setStep(2)
-  //                         "agent_d_done" → setStep(3)
-  //   2. fetch POST → http://localhost:8000/fact-check
-  //      Body: JSON.stringify({ text: inputText.trim() })
-  //      On success: setResult(data), setStep(4), setStatus("done")
-  //      On error:   setStatus("error")
-  //      In finally: sse.close()
-  //
-  // See TruthNet_PRD_v2.pdf §6.2 for SSE event names and endpoint spec.
-  // See TruthNet_PRD_v2.pdf §7 for the safe rendering rules (optional chaining).
-  // =========================================================================
-  const submit = useCallback(() => {
-    if (!inputText.trim()) return;
+  const abortCurrentRequest = () => {
+    if (requestRef.current) {
+      requestRef.current.abort();
+      requestRef.current = null;
+    }
+  };
+
+  const apiUrl = () => {
+    if (window.TRUTHNET_API_URL) return window.TRUTHNET_API_URL;
+    if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+      return `${window.location.origin}/fact-check`;
+    }
+    return "http://127.0.0.1:8000/fact-check";
+  };
+
+  const applyStreamEvent = (event) => {
+    if (event.status === "agent_a_running") setStep(0);
+    if (event.status === "agent_a_done") setStep(1);
+    if (event.status === "agents_bc_running") setStep(2);
+    if (event.status === "agents_bc_done") setStep(2);
+    if (event.status === "agent_d_running") setStep(3);
+    if (event.status === "agent_d_done") setStep(3);
+
+    if (event.status === "error") {
+      throw new Error(event.message || "Backend stream failed.");
+    }
+
+    if (event.result) {
+      setResult(event.result);
+      setStep(4);
+      setStatus("done");
+    }
+  };
+
+  const parseSseBlock = (block) => {
+    const dataLine = block
+      .split("\n")
+      .find((line) => line.startsWith("data: "));
+    if (!dataLine) return null;
+    return JSON.parse(dataLine.slice(6));
+  };
+
+  const submit = useCallback(async () => {
+    const claim = inputText.trim();
+    if (!claim) return;
     clearTimers();
+    abortCurrentRequest();
     setStatus("loading");
     setStep(0);
     setResult(null);
+    setErrorMessage("");
 
-    // MOCK — remove these 4 lines when wiring real backend:
-    timersRef.current.push(setTimeout(() => setStep(1), 1400));
-    timersRef.current.push(setTimeout(() => setStep(2), 3200));
-    timersRef.current.push(setTimeout(() => setStep(3), 5400));
-    timersRef.current.push(setTimeout(() => {
-      setResult(MOCK_RESULT); // MOCK — replace with: setResult(data) from POST response
-      setStep(4);
-      setStatus("done");
-    }, 6800));
+    const controller = new AbortController();
+    requestRef.current = controller;
 
-    // BACKEND STUB — uncomment and replace the mock block above with this:
-    // const encoded = encodeURIComponent(inputText.trim());
-    // const sse = new EventSource(`http://localhost:8000/fact-check/stream?text=${encoded}`);
-    // sse.addEventListener("agent_a_done",      () => setStep(1));
-    // sse.addEventListener("agents_bc_running", () => setStep(2));
-    // sse.addEventListener("agent_d_done",      () => setStep(3));
-    // sse.onerror = () => sse.close();
-    // fetch("http://localhost:8000/fact-check", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ text: inputText.trim() }),
-    // })
-    //   .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
-    //   .then((data) => { setResult(data); setStep(4); setStatus("done"); })
-    //   .catch(() => setStatus("error"))
-    //   .finally(() => sse.close());
+    try {
+      const response = await fetch(apiUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_input: claim }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`Backend returned ${response.status}: ${detail || response.statusText}`);
+      }
+      if (!response.body) {
+        throw new Error("This browser did not expose a readable response stream.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() || "";
+
+        for (const block of blocks) {
+          const event = parseSseBlock(block.trim());
+          if (event) applyStreamEvent(event);
+        }
+
+        if (done) break;
+      }
+
+      const finalEvent = parseSseBlock(buffer.trim());
+      if (finalEvent) applyStreamEvent(finalEvent);
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      setErrorMessage(error.message || "Could not connect to the TruthNet backend.");
+      setStatus("error");
+    } finally {
+      if (requestRef.current === controller) requestRef.current = null;
+    }
   }, [inputText]);
 
   const loadDemo = () => {
     clearTimers();
+    abortCurrentRequest();
     setInputText(MOCK_CLAIM);
-    setResult(MOCK_RESULT);
-    setStep(4);
-    setStatus("done");
+    setResult(null);
+    setErrorMessage("");
+    setStep(0);
+    setStatus("idle");
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
 
   const reset = () => {
     clearTimers();
+    abortCurrentRequest();
     setStatus("idle");
     setStep(0);
     setResult(null);
+    setErrorMessage("");
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
 
@@ -506,7 +562,10 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [submit]);
 
-  useEffect(() => () => clearTimers(), []);
+  useEffect(() => () => {
+    clearTimers();
+    abortCurrentRequest();
+  }, []);
 
   return (
     <div style={{ minHeight: "100vh", background: TN.bg, color: TN.ink }}>
@@ -534,7 +593,7 @@ function App() {
               </div>
             )}
 
-            {status === "error" && <ErrorState onRetry={submit} />}
+            {status === "error" && <ErrorState onRetry={submit} message={errorMessage} />}
 
             {status === "done" && result && (
               <>
@@ -571,7 +630,7 @@ function App() {
         <div className="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-3"
              style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: TN.muted }}>
           <span>© TruthNet · An open judgment protocol</span>
-          <span style={{ fontFamily: "JetBrains Mono, monospace" }}>v0.4.1 · localhost:8000</span>
+          <span style={{ fontFamily: "JetBrains Mono, monospace" }}>v0.4.1 · {backendLabel}</span>
           <span>Made for clear thinking.</span>
         </div>
       </footer>

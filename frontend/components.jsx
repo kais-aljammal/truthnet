@@ -105,7 +105,7 @@ function ChatInput({ value, onChange, onSubmit, onLoadDemo, status }) {
               }}
               onMouseEnter={(e)=>e.currentTarget.style.background = TN.bg}
               onMouseLeave={(e)=>e.currentTarget.style.background = "transparent"}
-            >[ Load Demo ]</button>
+            >[ Sample Claim ]</button>
             <button
               onClick={onSubmit}
               disabled={loading || !value.trim()}
