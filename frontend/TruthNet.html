@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TruthNet — A Journal of Adversarial Fact-Checking</title>
+<meta name="description" content="Real-time adversarial AI fact-checking powered by 4 specialized agents. Paste any claim, get a sourced verdict." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  :root, [data-theme="light"] {
+    --bg:           #F7F5F0;
+    --surface:      #FFFFFF;
+    --tint:         #FBFAF6;
+    --border:       #D4C9B8;
+    --border-soft:  #E5DCCC;
+    --ink:          #1A1814;
+    --ink-2:        #5C5549;
+    --muted:        #8C8478;
+    --accent:       #2B4C8C;
+    --grain:        rgba(60,40,10,0.025);
+    --grain-blend:  multiply;
+    --selection:    #FDF3E3;
+    --inset-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+
+    --v-true-fg:    #1A5C38;
+    --v-true-bg:    #EAF4EE;
+    --v-false-fg:   #8B1A1A;
+    --v-false-bg:   #FAEAEA;
+    --v-warn-fg:    #7A4A00;
+    --v-warn-bg:    #FDF3E3;
+    --v-neutral-fg: #3D3D3D;
+    --v-neutral-bg: #F0F0F0;
+  }
+
+  [data-theme="dark"] {
+    --bg:           #15140F;
+    --surface:      #1F1D17;
+    --tint:         #19170F;
+    --border:       #3D372D;
+    --border-soft:  #2A2820;
+    --ink:          #ECE4D2;
+    --ink-2:        #B0A691;
+    --muted:        #7A7163;
+    --accent:       #9FB9FF;
+    --grain:        rgba(255,230,180,0.022);
+    --grain-blend:  overlay;
+    --selection:    #3D3520;
+    --inset-shadow: inset 0 1px 3px rgba(0,0,0,0.35);
+
+    --v-true-fg:    #7DD3A8;
+    --v-true-bg:    #18271E;
+    --v-false-fg:   #ED9999;
+    --v-false-bg:   #2C1818;
+    --v-warn-fg:    #E3B373;
+    --v-warn-bg:    #2C231A;
+    --v-neutral-fg: #C5BFB0;
+    --v-neutral-bg: #25231E;
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(var(--grain) 1px, transparent 1px);
+    background-size: 3px 3px;
+    z-index: 0;
+    mix-blend-mode: var(--grain-blend);
+  }
+  #root { position: relative; z-index: 1; }
+
+  .tn-pulse { animation: tn-pulse 1.6s ease-in-out infinite; }
+  @keyframes tn-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.7; }
+  }
+
+  .tn-slide-in { animation: tn-slide-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  @keyframes tn-slide-in {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .tn-fade-up { animation: tn-fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  @keyframes tn-fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  ::selection { background: var(--selection); color: var(--ink); }
+  a { color: var(--accent); }
+
+  /* ====== DIAGRAM — autonomous animated loop ====== */
+  .tn-diagram .flow {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 1.4;
+    stroke-dasharray: 4 5;
+    animation: tn-flow-dash 1.4s linear infinite;
+  }
+  @keyframes tn-flow-dash { to { stroke-dashoffset: -9; } }
+
+  .tn-diagram .node-bg {
+    fill: var(--surface);
+    stroke: var(--border);
+    stroke-width: 1.2;
+    transition: fill 0.3s, stroke 0.3s;
+  }
+  .tn-diagram .node-label {
+    fill: var(--muted);
+    font-family: "Inter", sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .tn-diagram .node-name {
+    fill: var(--ink);
+    font-family: "Lora", serif;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .tn-diagram .node-name-sm {
+    fill: var(--ink);
+    font-family: "Lora", serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* 7s cycle, nodes light up in sequence */
+  .tn-diagram .node-claim   .node-bg { animation: pulse-claim 7s ease-in-out infinite; }
+  .tn-diagram .node-a       .node-bg { animation: pulse-a     7s ease-in-out infinite; }
+  .tn-diagram .node-b       .node-bg { animation: pulse-b     7s ease-in-out infinite; }
+  .tn-diagram .node-c       .node-bg { animation: pulse-c     7s ease-in-out infinite; }
+  .tn-diagram .node-d       .node-bg { animation: pulse-d     7s ease-in-out infinite; }
+  .tn-diagram .node-verdict .node-bg { animation: pulse-v     7s ease-in-out infinite; }
+
+  @keyframes pulse-claim {
+    0%, 12%, 100% { fill: var(--surface); stroke: var(--border); }
+    4%, 9%        { fill: var(--tint);    stroke: var(--ink); }
+  }
+  @keyframes pulse-a {
+    0%, 14%, 30%, 100% { fill: var(--surface); stroke: var(--border); }
+    18%, 26%           { fill: var(--tint);    stroke: var(--ink); }
+  }
+  @keyframes pulse-b {
+    0%, 30%, 50%, 100% { fill: var(--surface);     stroke: var(--border); }
+    34%, 46%           { fill: var(--v-false-bg);  stroke: var(--v-false-fg); }
+  }
+  @keyframes pulse-c {
+    0%, 30%, 50%, 100% { fill: var(--surface);    stroke: var(--border); }
+    34%, 46%           { fill: var(--v-true-bg);  stroke: var(--v-true-fg); }
+  }
+  @keyframes pulse-d {
+    0%, 50%, 66%, 100% { fill: var(--surface); stroke: var(--border); }
+    54%, 62%           { fill: var(--tint);    stroke: var(--ink); }
+  }
+  @keyframes pulse-v {
+    0%, 66%, 100% { fill: var(--surface);     stroke: var(--border); }
+    72%, 88%      { fill: var(--v-false-bg);  stroke: var(--v-false-fg); }
+  }
+
+  /* verdict text swaps between "Verdict" and "FALSE" near end of cycle */
+  .tn-diagram .verdict-text-idle  { animation: vt-idle  7s ease-in-out infinite; }
+  .tn-diagram .verdict-text-final { animation: vt-final 7s ease-in-out infinite; opacity: 0; }
+  @keyframes vt-idle  { 0%, 66%, 92%, 100% { opacity: 1; } 70%, 88% { opacity: 0; } }
+  @keyframes vt-final { 0%, 68%, 90%, 100% { opacity: 0; } 72%, 88% { opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="mockData.js"></script>
+<script type="text/babel" data-presets="react" src="components.jsx"></script>
+<script type="text/babel" data-presets="react" src="app.jsx"></script>
+<script type="text/babel" data-presets="react">
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<App />);
+</script>
+</body>
+</html>
