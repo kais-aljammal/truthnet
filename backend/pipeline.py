@@ -33,6 +33,7 @@ EXPECTED_STATUS_SEQUENCE = [
     "agents_bc_done",
     "agent_d_running",
     "agent_d_done",
+    "result",
 ]
 
 
@@ -219,7 +220,7 @@ async def stream_pipeline(user_input: str) -> AsyncIterator[str]:
             data = item["data"]
 
             if event == "verdict":
-                yield _sse_data({"result": data})
+                yield _sse_data({"status": "result", "result": data})
             elif event == "agent_a_done":
                 agent_a = data.get("agent_a", {})
                 yield _sse_data(
