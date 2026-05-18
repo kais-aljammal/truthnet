@@ -171,3 +171,7 @@ ANTHROPIC_DISABLE_WEB_SEARCH=false
 ```
 
 The live model split is configured through per-agent provider/model flags in `.env`.
+
+## License
+
+All rights reserved. See `LICENSE`.
