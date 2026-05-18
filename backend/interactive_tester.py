@@ -9,8 +9,8 @@ try:
     from .agents import run_agent_a, run_agent_d
     from .pipeline import run_pipeline
 except ImportError:
-    from agents import run_agent_a, run_agent_d  # type: ignore
-    from pipeline import run_pipeline  # type: ignore
+    from backend.agents import run_agent_a, run_agent_d  # type: ignore
+    from backend.pipeline import run_pipeline  # type: ignore
 
 
 MOCK_AGENT_B = {
