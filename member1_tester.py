@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-
-from agents import run_agent_a, run_agent_d
+from backend.agents import run_agent_a, run_agent_d
 
 
 MOCK_AGENT_B = {
