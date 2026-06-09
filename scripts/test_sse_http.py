@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 
 import httpx
 
@@ -19,10 +20,12 @@ def _parse_sse_chunk(chunk: str) -> list[dict]:
 
 
 async def main() -> None:
-    url = "http://127.0.0.1:8000/fact-check"
+    base = os.getenv("TRUTHNET_TEST_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    url = f"{base}/fact-check"
     payload = {"user_input": "Studies show that 5G towers spread COVID-19."}
     statuses = []
     verdict = None
+    result_payload = None
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         async with client.stream("POST", url, json=payload) as response:
@@ -34,10 +37,14 @@ async def main() -> None:
                         print(event["status"])
                     if "result" in event:
                         verdict = event["result"].get("verdict")
+                        result_payload = event["result"]
 
     if not verdict:
         raise AssertionError("No verdict received from HTTP SSE stream.")
-    print(f"OK - verdict={verdict} statuses={len(statuses)}")
+    for field in ("prosecution_brief", "defense_brief", "confidence_score"):
+        if field not in (result_payload or {}):
+            raise AssertionError(f"Missing '{field}' in SSE result payload.")
+    print(f"OK - verdict={verdict} statuses={len(statuses)} briefs=OK")
 
 
 if __name__ == "__main__":

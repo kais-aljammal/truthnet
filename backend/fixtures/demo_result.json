@@ -1,0 +1,71 @@
+{
+  "verdict": "FALSE",
+  "confidence_score": 92,
+  "verdict_color": "red",
+  "headline_summary": "The Great Wall of China is not visible to the naked eye from low Earth orbit or from the Moon — this is a persistent myth debunked by astronauts and NASA.",
+  "summary": "The Great Wall of China is not visible to the naked eye from low Earth orbit or from the Moon — this is a persistent myth debunked by astronauts and NASA.",
+  "detailed_explanation": "Contrary to popular belief, the Great Wall is extremely narrow relative to the scale of Earth and blends into the surrounding terrain. Apollo astronauts including Neil Armstrong confirmed they could not see the Wall from the Moon. Low-orbit views require zoom lenses and favorable lighting; the wall does not stand out as a continuous ribbon from space.",
+  "prosecution_brief": "NASA, ESA astronauts, and science educators consistently report that the Great Wall is not discernible with the unaided eye from typical orbital altitudes. Photographs that appear to show it rely on telephoto lenses or digital enhancement. The claim conflates low-resolution orbital photography with naked-eye visibility.",
+  "defense_brief": "Under rare conditions — very clear atmosphere, correct sun angle, and knowing exactly where to look — some astronauts have reported glimpsing sections with effort. However, this is not the same as the myth that the Wall is uniquely or easily visible from space, and it is certainly not visible from the Moon.",
+  "what_is_true": [
+    "The Great Wall is one of the largest human-made structures on Earth by total length.",
+    "Sections can sometimes be captured in orbital imagery with the right equipment."
+  ],
+  "what_is_false": [
+    "The Great Wall is not visible to the naked eye from the Moon.",
+    "It is not uniquely visible from space compared to other large structures or natural features."
+  ],
+  "what_is_missing": [
+    "The claim rarely specifies altitude, weather, or whether magnification was used.",
+    "Urban legends often confuse enhanced photos with human visual experience."
+  ],
+  "manipulation_techniques_detected": [
+    "Appeal to common knowledge without citing observational conditions.",
+    "Conflation of photographic evidence with naked-eye visibility."
+  ],
+  "top_sources": [
+    {
+      "title": "NASA — Great Wall of China from space",
+      "url": "https://www.nasa.gov/image-article/great-wall-china-space/",
+      "supports": "debunks",
+      "snippet": "NASA explains that the Wall is very difficult to see unaided from orbit and is not visible from the Moon."
+    },
+    {
+      "title": "Snopes — Can the Great Wall be seen from space?",
+      "url": "https://www.snopes.com/fact-check/great-wall-of-china-space/",
+      "supports": "debunks",
+      "snippet": "Fact-checkers rate the naked-eye visibility claim as false or misleading for typical orbital viewing."
+    },
+    {
+      "title": "European Space Agency — Observing Earth",
+      "url": "https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration",
+      "supports": "contextualizes",
+      "snippet": "Orbital photography requires clear conditions; human perception differs from telephoto satellite images."
+    }
+  ],
+  "sources": [
+    {
+      "title": "NASA — Great Wall of China from space",
+      "url": "https://www.nasa.gov/image-article/great-wall-china-space/",
+      "supports": "debunks",
+      "snippet": "NASA explains that the Wall is very difficult to see unaided from orbit and is not visible from the Moon."
+    },
+    {
+      "title": "Snopes — Can the Great Wall be seen from space?",
+      "url": "https://www.snopes.com/fact-check/great-wall-of-china-space/",
+      "supports": "debunks",
+      "snippet": "Fact-checkers rate the naked-eye visibility claim as false or misleading for typical orbital viewing."
+    },
+    {
+      "title": "European Space Agency — Observing Earth",
+      "url": "https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration",
+      "supports": "contextualizes",
+      "snippet": "Orbital photography requires clear conditions; human perception differs from telephoto satellite images."
+    }
+  ],
+  "bias_rating_of_original": "slightly_biased",
+  "domain_expert_note": "Orbital visibility claims should specify altitude, weather, and whether optical aids were used.",
+  "error_margin_note": "Future high-resolution imaging could change public perception, but naked-eye Moon visibility remains unsupported.",
+  "pipeline_warnings": [],
+  "demo_mode": true
+}

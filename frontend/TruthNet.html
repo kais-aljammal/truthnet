@@ -3,17 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>TruthNet — A Journal of Adversarial Fact-Checking</title>
-<meta name="description" content="Real-time adversarial AI fact-checking powered by 4 specialized agents. Paste any claim, get a sourced verdict." />
+<title>TruthNet — Real-Time Adversarial Fact-Checking</title>
+<meta name="description" content="Paste any claim. Four AI agents argue prosecution and defense, then deliver a sourced verdict in ~30 seconds." />
+<meta property="og:title" content="TruthNet — Claim-Level Fact-Checking" />
+<meta property="og:description" content="Adversarial AI fact-checking with confidence scores, sources, and live pipeline streaming." />
+<meta property="og:type" content="website" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' x='4' font-size='24' font-family='serif' font-weight='700'>TN</text></svg>" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.9/babel.min.js" crossorigin></script>
 
 <style>
   :root, [data-theme="light"] {
@@ -30,17 +34,17 @@
     --grain-blend:  multiply;
     --selection:    #FDF3E3;
     --inset-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
-
     --v-true-fg:    #1A5C38;
     --v-true-bg:    #EAF4EE;
     --v-false-fg:   #8B1A1A;
     --v-false-bg:   #FAEAEA;
-    --v-warn-fg:    #7A4A00;
-    --v-warn-bg:    #FDF3E3;
+    --v-warn-fg:    #7A6400;
+    --v-warn-bg:    #FFF8E1;
+    --v-mislead-fg: #B45309;
+    --v-mislead-bg: #FFF0E0;
     --v-neutral-fg: #3D3D3D;
     --v-neutral-bg: #F0F0F0;
   }
-
   [data-theme="dark"] {
     --bg:           #15140F;
     --surface:      #1F1D17;
@@ -55,25 +59,24 @@
     --grain-blend:  overlay;
     --selection:    #3D3520;
     --inset-shadow: inset 0 1px 3px rgba(0,0,0,0.35);
-
     --v-true-fg:    #7DD3A8;
     --v-true-bg:    #18271E;
     --v-false-fg:   #ED9999;
     --v-false-bg:   #2C1818;
-    --v-warn-fg:    #E3B373;
-    --v-warn-bg:    #2C231A;
+    --v-warn-fg:    #E8D06A;
+    --v-warn-bg:    #2C2818;
+    --v-mislead-fg: #F0A060;
+    --v-mislead-bg: #2C2018;
     --v-neutral-fg: #C5BFB0;
     --v-neutral-bg: #25231E;
   }
-
   html { scroll-behavior: smooth; }
   body {
     background-color: var(--bg);
     color: var(--ink);
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
   }
   body::before {
     content: "";
@@ -84,115 +87,180 @@
     z-index: 0;
     mix-blend-mode: var(--grain-blend);
   }
-  #root { position: relative; z-index: 1; }
-
+  #root { position: relative; z-index: 1; min-height: 100vh; }
   .tn-pulse { animation: tn-pulse 1.6s ease-in-out infinite; }
   @keyframes tn-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.15); opacity: 0.7; }
   }
-
   .tn-slide-in { animation: tn-slide-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
   @keyframes tn-slide-in {
     from { opacity: 0; transform: translateX(16px); }
     to   { opacity: 1; transform: translateX(0); }
   }
-
   .tn-fade-up { animation: tn-fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
   @keyframes tn-fade-up {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-
   ::selection { background: var(--selection); color: var(--ink); }
   a { color: var(--accent); }
-
-  /* ====== DIAGRAM — autonomous animated loop ====== */
   .tn-diagram .flow {
-    fill: none;
-    stroke: var(--border);
-    stroke-width: 1.4;
-    stroke-dasharray: 4 5;
-    animation: tn-flow-dash 1.4s linear infinite;
+    fill: none; stroke: var(--border); stroke-width: 1.4;
+    stroke-dasharray: 4 5; animation: tn-flow-dash 1.4s linear infinite;
   }
   @keyframes tn-flow-dash { to { stroke-dashoffset: -9; } }
-
-  .tn-diagram .node-bg {
-    fill: var(--surface);
-    stroke: var(--border);
-    stroke-width: 1.2;
-    transition: fill 0.3s, stroke 0.3s;
-  }
+  .tn-diagram .node-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; }
   .tn-diagram .node-label {
-    fill: var(--muted);
-    font-family: "Inter", sans-serif;
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    font-weight: 600;
+    fill: var(--muted); font-family: "Inter", sans-serif; font-size: 9px;
+    letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600;
   }
-  .tn-diagram .node-name {
-    fill: var(--ink);
-    font-family: "Lora", serif;
-    font-size: 15px;
-    font-weight: 600;
-  }
-  .tn-diagram .node-name-sm {
-    fill: var(--ink);
-    font-family: "Lora", serif;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  /* 7s cycle, nodes light up in sequence */
+  .tn-diagram .node-name { fill: var(--ink); font-family: "Lora", serif; font-size: 15px; font-weight: 600; }
+  .tn-diagram .node-name-sm { fill: var(--ink); font-family: "Lora", serif; font-size: 13px; font-weight: 600; }
   .tn-diagram .node-claim   .node-bg { animation: pulse-claim 7s ease-in-out infinite; }
   .tn-diagram .node-a       .node-bg { animation: pulse-a     7s ease-in-out infinite; }
   .tn-diagram .node-b       .node-bg { animation: pulse-b     7s ease-in-out infinite; }
   .tn-diagram .node-c       .node-bg { animation: pulse-c     7s ease-in-out infinite; }
   .tn-diagram .node-d       .node-bg { animation: pulse-d     7s ease-in-out infinite; }
   .tn-diagram .node-verdict .node-bg { animation: pulse-v     7s ease-in-out infinite; }
-
-  @keyframes pulse-claim {
-    0%, 12%, 100% { fill: var(--surface); stroke: var(--border); }
-    4%, 9%        { fill: var(--tint);    stroke: var(--ink); }
-  }
-  @keyframes pulse-a {
-    0%, 14%, 30%, 100% { fill: var(--surface); stroke: var(--border); }
-    18%, 26%           { fill: var(--tint);    stroke: var(--ink); }
-  }
-  @keyframes pulse-b {
-    0%, 30%, 50%, 100% { fill: var(--surface);     stroke: var(--border); }
-    34%, 46%           { fill: var(--v-false-bg);  stroke: var(--v-false-fg); }
-  }
-  @keyframes pulse-c {
-    0%, 30%, 50%, 100% { fill: var(--surface);    stroke: var(--border); }
-    34%, 46%           { fill: var(--v-true-bg);  stroke: var(--v-true-fg); }
-  }
-  @keyframes pulse-d {
-    0%, 50%, 66%, 100% { fill: var(--surface); stroke: var(--border); }
-    54%, 62%           { fill: var(--tint);    stroke: var(--ink); }
-  }
-  @keyframes pulse-v {
-    0%, 66%, 100% { fill: var(--surface);     stroke: var(--border); }
-    72%, 88%      { fill: var(--v-false-bg);  stroke: var(--v-false-fg); }
-  }
-
-  /* verdict text swaps between "Verdict" and "FALSE" near end of cycle */
+  @keyframes pulse-claim { 0%,12%,100%{fill:var(--surface);stroke:var(--border)} 4%,9%{fill:var(--tint);stroke:var(--ink)} }
+  @keyframes pulse-a { 0%,14%,30%,100%{fill:var(--surface);stroke:var(--border)} 18%,26%{fill:var(--tint);stroke:var(--ink)} }
+  @keyframes pulse-b { 0%,30%,50%,100%{fill:var(--surface);stroke:var(--border)} 34%,46%{fill:var(--v-false-bg);stroke:var(--v-false-fg)} }
+  @keyframes pulse-c { 0%,30%,50%,100%{fill:var(--surface);stroke:var(--border)} 34%,46%{fill:var(--v-true-bg);stroke:var(--v-true-fg)} }
+  @keyframes pulse-d { 0%,50%,66%,100%{fill:var(--surface);stroke:var(--border)} 54%,62%{fill:var(--tint);stroke:var(--ink)} }
+  @keyframes pulse-v { 0%,66%,100%{fill:var(--surface);stroke:var(--border)} 72%,88%{fill:var(--v-false-bg);stroke:var(--v-false-fg)} }
   .tn-diagram .verdict-text-idle  { animation: vt-idle  7s ease-in-out infinite; }
   .tn-diagram .verdict-text-final { animation: vt-final 7s ease-in-out infinite; opacity: 0; }
-  @keyframes vt-idle  { 0%, 66%, 92%, 100% { opacity: 1; } 70%, 88% { opacity: 0; } }
-  @keyframes vt-final { 0%, 68%, 90%, 100% { opacity: 0; } 72%, 88% { opacity: 1; } }
+  @keyframes vt-idle  { 0%,66%,92%,100%{opacity:1} 70%,88%{opacity:0} }
+  @keyframes vt-final { 0%,68%,90%,100%{opacity:0} 72%,88%{opacity:1} }
+  #boot-error {
+    display: none; margin: 40px auto; max-width: 640px; padding: 20px 24px;
+    background: var(--v-false-bg); border: 1px solid var(--v-false-fg); color: var(--v-false-fg);
+    font-family: Inter, sans-serif; font-size: 14px; line-height: 1.5;
+  }
+  #boot-loading {
+    padding: 48px 24px; text-align: center; color: var(--muted);
+    font-family: Inter, sans-serif; font-size: 14px;
+  }
+  .tn-btn-primary {
+    font-family: Inter, sans-serif; font-size: 13px; font-weight: 600;
+    letter-spacing: 0.04em; padding: 10px 18px; cursor: pointer;
+    background: var(--ink); color: var(--bg); border: 1px solid var(--ink);
+    transition: opacity 0.15s;
+  }
+  .tn-btn-primary:hover { opacity: 0.88; }
+  .tn-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .tn-btn-ghost {
+    font-family: Inter, sans-serif; font-size: 13px; padding: 10px 18px; cursor: pointer;
+    background: transparent; color: var(--ink-2); border: 1px solid var(--border);
+  }
+  .tn-btn-ghost:hover { background: var(--tint); }
+  .tn-btn-lg { padding: 12px 22px; font-size: 14px; }
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div id="boot-loading">Loading TruthNet…</div></div>
+<div id="boot-error"></div>
 
 <script src="/frontend/mockData.js"></script>
-<script type="text/babel" data-presets="react" src="/frontend/components.jsx"></script>
-<script type="text/babel" data-presets="react" src="/frontend/app.jsx"></script>
-<script type="text/babel" data-presets="react">
-  const root = ReactDOM.createRoot(document.getElementById("root"));
-  root.render(<App />);
+<script>
+(function bootTruthNet() {
+  const rootEl = document.getElementById("root");
+  const errEl = document.getElementById("boot-error");
+
+  function showError(message) {
+    rootEl.innerHTML = "";
+    errEl.style.display = "block";
+    errEl.innerHTML = "<strong>TruthNet failed to load.</strong><br><br>"
+      + message
+      + "<br><br>Start the backend from the repo root:<br>"
+      + "<code>.\\scripts\\run.ps1</code><br>"
+      + "Then open <a href=\"/app\">http://127.0.0.1:8000/app</a>";
+    console.error(message);
+  }
+
+  function runJs(code, label) {
+    try {
+      const script = document.createElement("script");
+      script.text = code;
+      document.body.appendChild(script);
+    } catch (err) {
+      throw new Error(label + ": " + err.message);
+    }
+  }
+
+  function loadScript(url) {
+    return new Promise(function (resolve, reject) {
+      const s = document.createElement("script");
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error("Could not load " + url)); };
+      document.body.appendChild(s);
+    });
+  }
+
+  async function fetchText(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Could not load " + url + " (HTTP " + res.status + ")");
+    return res.text();
+  }
+
+  async function loadViaBundles() {
+    const scripts = [
+      "/frontend/components.bundle.js",
+      "/frontend/plans.bundle.js",
+      "/frontend/quota.bundle.js",
+      "/frontend/app.bundle.js",
+      "/frontend/landing.bundle.js",
+      "/frontend/auth.bundle.js",
+      "/frontend/legal.bundle.js",
+      "/frontend/billing.bundle.js",
+      "/frontend/history.bundle.js",
+      "/frontend/router.bundle.js",
+    ];
+    for (const url of scripts) {
+      await loadScript(url);
+    }
+  }
+
+  async function loadViaBabel() {
+    if (!window.Babel) {
+      throw new Error("Babel CDN failed to load. Run .\\scripts\\build_frontend.ps1 and reload.");
+    }
+    const files = [
+      "components.jsx", "plans.jsx", "quota.jsx", "app.jsx", "landing.jsx", "auth.jsx", "legal.jsx", "billing.jsx", "history.jsx", "router.jsx",
+    ];
+    for (const file of files) {
+      const src = await fetchText("/frontend/" + file);
+      runJs(Babel.transform(src, { presets: ["react"] }).code, file);
+    }
+  }
+
+  async function load() {
+    if (!window.React || !window.ReactDOM) {
+      throw new Error("React CDN scripts failed to load. Check your internet connection and reload.");
+    }
+
+    try {
+      await loadViaBundles();
+    } catch (bundleErr) {
+      console.warn("Pre-built bundles unavailable, falling back to Babel:", bundleErr.message);
+      await loadViaBabel();
+    }
+
+    if (!window.App) throw new Error("App component was not registered after loading frontend scripts.");
+    if (!window.ErrorBoundary) throw new Error("ErrorBoundary was not registered.");
+
+    rootEl.innerHTML = "";
+    ReactDOM.createRoot(rootEl).render(
+      React.createElement(window.ErrorBoundary, null, React.createElement(window.App))
+    );
+  }
+
+  load().catch(function (err) {
+    showError(err && err.message ? err.message : String(err));
+  });
+})();
 </script>
 </body>
 </html>

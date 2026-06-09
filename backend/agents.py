@@ -48,7 +48,7 @@ AGENT_A_PROVIDER = os.getenv("AGENT_A_PROVIDER", "anthropic").strip().lower()
 AGENT_B_PROVIDER = os.getenv("AGENT_B_PROVIDER", "anthropic").strip().lower()
 AGENT_C_PROVIDER = os.getenv("AGENT_C_PROVIDER", "anthropic").strip().lower()
 AGENT_D_PROVIDER = os.getenv("AGENT_D_PROVIDER", "anthropic").strip().lower()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
 
 AGENT_A_SYSTEM_PROMPT = """You are Agent A - a precise claim analyst.
@@ -656,11 +656,13 @@ async def run_agent_a(user_input: str) -> Dict[str, Any]:
 
 
 async def get_fact_checks_prosecutor(claim: str) -> str:
-    return await _get_fact_checks(claim, "GOOGLE_FACT_CHECK_API_KEY", "GOOGLE_API_KEY")
+    # PRD §4.2: Agent B pre-search uses GOOGLE_API_KEY.
+    return await _get_fact_checks(claim, "GOOGLE_API_KEY", "GOOGLE_FACT_CHECK_API_KEY")
 
 
 async def get_fact_checks_defender(claim: str) -> str:
-    return await _get_fact_checks(claim, "GOOGLE_FACT_CHECK_API_KEY", "GOOGLE_API_KEY")
+    # PRD §4.3: Agent C pre-search uses GOOGLE_FACT_CHECK_API_KEY only.
+    return await _get_fact_checks(claim, "GOOGLE_FACT_CHECK_API_KEY")
 
 
 async def run_agent_b(agent_a_output: Dict[str, Any]) -> Dict[str, Any]:

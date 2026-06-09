@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: truthnet
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: TRUTHNET_ENV
+        value: production
+      - key: AUTH_REQUIRED
+        value: true
+      - key: TRUTHNET_MOCK
+        value: "0"
+      - key: DEMO_MODE
+        value: "false"
+      - key: GEMINI_MODEL
+        value: gemini-3-flash-preview
+      - key: GEMINI_USE_GOOGLE_SEARCH
+        value: "true"
+      - key: AGENT_A_PROVIDER
+        value: gemini
+      - key: AGENT_B_PROVIDER
+        value: gemini
+      - key: AGENT_C_PROVIDER
+        value: gemini
+      - key: AGENT_D_PROVIDER
+        value: gemini
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: truthnet-db
+          property: connectionString
+      - key: FRONTEND_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GOOGLE_FACT_CHECK_API_KEY
+        sync: false
+      - key: BILLING_MODE
+        value: manual
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_STANDARD
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_MAX
+        sync: false
+
+databases:
+  - name: truthnet-db
+    plan: starter

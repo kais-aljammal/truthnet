@@ -13,3 +13,6 @@ data/*.csv
 data/*.zip
 .DS_Store
 *.log
+node_modules/
+truthnet.db
+package-lock.json

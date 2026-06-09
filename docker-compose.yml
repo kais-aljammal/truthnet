@@ -1,0 +1,18 @@
+services:
+  truthnet:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      TRUTHNET_ENV: production
+      AUTH_REQUIRED: "true"
+      TRUTHNET_MOCK: "0"
+      DEMO_MODE: "false"
+    volumes:
+      - truthnet_data:/app/data
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+volumes:
+  truthnet_data:

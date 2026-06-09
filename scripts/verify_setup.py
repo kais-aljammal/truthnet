@@ -69,7 +69,7 @@ def check_env() -> bool:
 
     from dotenv import load_dotenv
 
-    load_dotenv(env_path, override=True)
+    load_dotenv(env_path, override=False)
     if os.getenv("TRUTHNET_MOCK", "").strip().lower() in {"1", "true", "yes", "on"}:
         print("[OK] TRUTHNET_MOCK is enabled; live provider keys are not required.")
         return True

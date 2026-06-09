@@ -13,7 +13,7 @@ pip install -r requirements.txt
 
 if (-not (Test-Path ".env")) {
     Copy-Item ".env.example" ".env"
-    Write-Host "Created .env from .env.example — ADD YOUR API KEYS before Saturday."
+    Write-Host "Created .env from .env.example - ADD YOUR API KEYS before Saturday."
 }
 
 Write-Host "`nOptional: PyTorch CPU (large download)"
@@ -22,4 +22,7 @@ Write-Host "  pip install torch torchvision torchaudio --index-url https://downl
 Write-Host "`nVerify:"
 Write-Host "  python scripts/verify_setup.py"
 Write-Host "`nRun demo UI:"
-Write-Host "  streamlit run frontend/streamlit_openai_app.py"
+Write-Host "  .\scripts\run.ps1"
+Write-Host "  Open http://127.0.0.1:8000/app"
+Write-Host "`nRebuild frontend after editing .jsx files:"
+Write-Host "  .\scripts\build_frontend.ps1"

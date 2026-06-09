@@ -1,6 +1,44 @@
 // TruthNet — Main App
+// Uses React.* hooks explicitly so this file can load after components.jsx without redeclaring globals.
 
-const { useCallback } = React;
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("TruthNet UI error:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: "100vh", display: "grid", placeItems: "center",
+          background: "var(--bg)", color: "var(--ink)", padding: 24,
+        }}>
+          <div style={{
+            maxWidth: 420, textAlign: "center", padding: "28px 24px",
+            border: "1px solid var(--border)", background: "var(--surface)",
+          }}>
+            <div style={{ fontFamily: "Lora, serif", fontSize: 22, fontWeight: 600, marginBottom: 8 }}>
+              Something went wrong — please reload
+            </div>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: "var(--ink-2)" }}>
+              The TruthNet interface hit an unexpected error.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // =========================================================================
 // THEME TOGGLE
@@ -167,11 +205,12 @@ function TruthNetDiagram() {
 // =========================================================================
 // MASTHEAD
 // =========================================================================
-function Masthead({ theme, onToggleTheme }) {
+function Masthead({ theme, onToggleTheme, user, onLogout, quota, onBilling, onHistory, onQuotaClick }) {
   return (
     <header style={{ borderBottom: `1px solid ${TN.border}`, background: TN.bg }}>
       <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between gap-6">
         <div className="flex items-center gap-3">
+          <a href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", color: "inherit" }}>
           <svg width="28" height="34" viewBox="0 0 28 34" fill="none">
             <path d="M14 1 L26 6 V18 C26 25 20 30 14 33 C8 30 2 25 2 18 V6 L14 1 Z"
                   stroke={TN.ink} strokeWidth="1.2" fill={TN.surfaceSoft} />
@@ -186,8 +225,33 @@ function Masthead({ theme, onToggleTheme }) {
               A Journal of Adversarial Fact-Checking
             </div>
           </div>
+          </a>
         </div>
         <div className="flex items-center gap-5">
+          {user && user.email !== "__guest__@truthnet.local" && (
+            <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: TN.muted }}>
+              {user.email}
+            </span>
+          )}
+          {user && user.email !== "__guest__@truthnet.local" && onHistory && (
+              <button type="button" onClick={onHistory} style={{
+                fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.08em",
+                padding: "5px 10px", border: `1px solid ${TN.border}`, background: "transparent", color: TN.ink2,
+              }}>History</button>
+          )}
+          {user && user.email !== "__guest__@truthnet.local" && onBilling && (
+              <button type="button" onClick={onBilling} style={{
+                fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.08em",
+                padding: "5px 10px", border: `1px solid ${TN.border}`, background: "transparent", color: TN.ink2,
+              }}>Plan</button>
+          )}
+          {user && user.email !== "__guest__@truthnet.local" && onLogout && (
+            <button onClick={onLogout} style={{
+              fontFamily: "Inter, sans-serif", fontSize: 11, letterSpacing: "0.08em",
+              padding: "5px 10px", border: `1px solid ${TN.border}`, background: "transparent", color: TN.ink2,
+            }}>Log out</button>
+          )}
+          <QuotaBadge quota={quota} onClick={onQuotaClick} />
           <div className="hidden md:flex flex-col items-end gap-1" style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 10.5, color: TN.muted }}>
             <span>Vol. 1 · Issue 04 · ISSN 0000–0000</span>
             <span>{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
@@ -207,8 +271,8 @@ function LeftTOC({ status }) {
     { id: "verdict", label: "Verdict",           num: "1" },
     { id: "detail",  label: "Detailed Analysis", num: "2" },
   ];
-  const [active, setActive] = useState("verdict");
-  useEffect(() => {
+  const [active, setActive] = React.useState("verdict");
+  React.useEffect(() => {
     if (status !== "done") return;
     const onScroll = () => {
       let cur = "verdict";
@@ -343,7 +407,7 @@ function ErrorState({ onRetry, message }) {
 // DETAILED ANALYSIS — collapsible wrapper, closed by default
 // =========================================================================
 function DetailedAnalysis({ result, inputText }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = React.useState(false);
   return (
     <section id="detail" className="scroll-mt-8">
       <button
@@ -402,28 +466,87 @@ function DetailedAnalysis({ result, inputText }) {
 // =========================================================================
 // APP
 // =========================================================================
-function App() {
-  const [inputText, setInputText] = useState("");
-  const [status, setStatus] = useState("idle");
-  const [step, setStep] = useState(0);
-  const [result, setResult] = useState(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [theme, setTheme] = useState(() => {
+function FactCheckApp({ user, onLogout, navigate }) {
+  const [inputText, setInputText] = React.useState("");
+  const [status, setStatus] = React.useState("idle");
+  const [agentSteps, setAgentSteps] = React.useState({
+    sources: "pending",
+    prosecution: "pending",
+    defense: "pending",
+    verdict: "pending",
+  });
+  const [result, setResult] = React.useState(null);
+  const [errorMessage, setErrorMessage] = React.useState("");
+  const [quota, setQuota] = React.useState(null);
+  const [paymentsEnabled, setPaymentsEnabled] = React.useState(false);
+  const [activatingPlan, setActivatingPlan] = React.useState(false);
+  const [theme, setTheme] = React.useState(() => {
     try { return localStorage.getItem("truthnet-theme") || "light"; }
     catch { return "light"; }
   });
-  const timersRef = useRef([]);
-  const requestRef = useRef(null);
+  const timersRef = React.useRef([]);
+  const requestRef = React.useRef(null);
   const backendLabel = window.location.protocol === "file:"
     ? "127.0.0.1:8000"
     : window.location.host;
 
-  useEffect(() => {
+  React.useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem("truthnet-theme", theme); } catch {}
   }, [theme]);
 
-  const toggleTheme = useCallback(() => {
+  const refreshQuota = React.useCallback(async () => {
+    if (typeof fetchQuota !== "function") return;
+    const q = await fetchQuota();
+    if (q) setQuota(q);
+  }, []);
+
+  React.useEffect(() => {
+    refreshQuota();
+  }, [refreshQuota]);
+
+  React.useEffect(() => {
+    if (typeof fetchBillingStatus !== "function") return;
+    fetchBillingStatus().then((s) => setPaymentsEnabled(!!s.payments_enabled)).catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("billing") !== "success") return;
+    if (typeof pollQuotaAfterPayment !== "function") return;
+
+    setActivatingPlan(true);
+    pollQuotaAfterPayment(30000, 2000).then((q) => {
+      if (q) setQuota(q);
+      setActivatingPlan(false);
+    });
+
+    params.delete("billing");
+    const next = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+    window.history.replaceState(null, "", next);
+  }, []);
+
+  const goBilling = React.useCallback(() => {
+    if (navigate) navigate("/billing");
+    else window.location.href = "/billing";
+  }, [navigate]);
+
+  const handleCheckout = React.useCallback(async (tier) => {
+    if (typeof startCheckout !== "function") {
+      goBilling();
+      return;
+    }
+    try {
+      await startCheckout(tier);
+    } catch (err) {
+      setErrorMessage(err.message || "Checkout failed.");
+      setStatus("error");
+    }
+  }, [goBilling]);
+
+  const quotaBlocked = quota && !quota.exempt && quota.remaining <= 0;
+
+  const toggleTheme = React.useCallback(() => {
     setTheme(t => (t === "dark" ? "light" : "dark"));
   }, []);
 
@@ -448,12 +571,24 @@ function App() {
   };
 
   const applyStreamEvent = (event) => {
-    if (event.status === "agent_a_running") setStep(0);
-    if (event.status === "agent_a_done") setStep(1);
-    if (event.status === "agents_bc_running") setStep(2);
-    if (event.status === "agents_bc_done") setStep(2);
-    if (event.status === "agent_d_running") setStep(3);
-    if (event.status === "agent_d_done") setStep(3);
+    if (event.status === "agent_a_running") {
+      setAgentSteps({ sources: "active", prosecution: "pending", defense: "pending", verdict: "pending" });
+    }
+    if (event.status === "agent_a_done" || (event.step === "sources" && event.done)) {
+      setAgentSteps((s) => ({ ...s, sources: "done", prosecution: "active", defense: "active" }));
+    }
+    if (event.status === "agents_bc_running") {
+      setAgentSteps((s) => ({ ...s, prosecution: "active", defense: "active" }));
+    }
+    if (event.status === "agents_bc_done" || (event.step === "prosecution" && event.done)) {
+      setAgentSteps((s) => ({ ...s, prosecution: "done", defense: "done", verdict: "active" }));
+    }
+    if (event.status === "agent_d_running") {
+      setAgentSteps((s) => ({ ...s, verdict: "active" }));
+    }
+    if (event.status === "agent_d_done" || (event.step === "verdict" && event.done)) {
+      setAgentSteps((s) => ({ ...s, verdict: "done" }));
+    }
 
     if (event.status === "error") {
       throw new Error(event.message || "Backend stream failed.");
@@ -461,7 +596,7 @@ function App() {
 
     if (event.result) {
       setResult(event.result);
-      setStep(4);
+      setAgentSteps({ sources: "done", prosecution: "done", defense: "done", verdict: "done" });
       setStatus("done");
     }
   };
@@ -474,18 +609,31 @@ function App() {
     return JSON.parse(dataLine.slice(6));
   };
 
-  const submit = useCallback(async () => {
+  const submit = React.useCallback(async () => {
     const claim = inputText.trim();
     if (!claim) return;
+    if (quotaBlocked) {
+      setErrorMessage("Daily limit reached — upgrade your plan to continue.");
+      setStatus("error");
+      return;
+    }
     clearTimers();
     abortCurrentRequest();
     setStatus("loading");
-    setStep(0);
+    setAgentSteps({ sources: "active", prosecution: "pending", defense: "pending", verdict: "pending" });
     setResult(null);
     setErrorMessage("");
 
     const controller = new AbortController();
     requestRef.current = controller;
+    const clientTimeoutMs = 35000;
+    const timeoutId = setTimeout(() => controller.abort(), clientTimeoutMs);
+    let receivedVerdict = false;
+
+    const handleStreamEvent = (event) => {
+      if (event?.result) receivedVerdict = true;
+      applyStreamEvent(event);
+    };
 
     try {
       const response = await fetch(apiUrl(), {
@@ -493,7 +641,25 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_input: claim }),
         signal: controller.signal,
+        credentials: "include",
       });
+
+      if (response.status === 401) {
+        throw new Error("Session expired — please log in again.");
+      }
+      if (response.status === 429) {
+        let detail = {};
+        try { detail = JSON.parse(await response.text()); } catch {}
+        const inner = detail.detail || detail;
+        if (inner && inner.error === "quota_exceeded") {
+          setQuota((q) => ({ ...q, ...inner, remaining: 0 }));
+          const upgradeMsg = paymentsEnabled
+            ? "Daily limit reached — use Upgrade to subscribe via Stripe."
+            : "Daily limit reached — upgrade your plan to continue.";
+          throw new Error(upgradeMsg);
+        }
+        throw new Error(inner.message || inner.detail || "Rate limit exceeded.");
+      }
 
       if (!response.ok) {
         const detail = await response.text();
@@ -516,22 +682,32 @@ function App() {
 
         for (const block of blocks) {
           const event = parseSseBlock(block.trim());
-          if (event) applyStreamEvent(event);
+          if (event) handleStreamEvent(event);
         }
 
         if (done) break;
       }
 
       const finalEvent = parseSseBlock(buffer.trim());
-      if (finalEvent) applyStreamEvent(finalEvent);
+      if (finalEvent) handleStreamEvent(finalEvent);
+
+      if (!receivedVerdict) {
+        throw new Error("The analysis stream ended before a verdict was returned.");
+      }
+      await refreshQuota();
     } catch (error) {
-      if (error.name === "AbortError") return;
+      if (error.name === "AbortError") {
+        setErrorMessage("Analysis timed out after 35 seconds. Try a shorter claim or enable DEMO_MODE.");
+        setStatus("error");
+        return;
+      }
       setErrorMessage(error.message || "Could not connect to the TruthNet backend.");
       setStatus("error");
     } finally {
+      clearTimeout(timeoutId);
       if (requestRef.current === controller) requestRef.current = null;
     }
-  }, [inputText]);
+  }, [inputText, quotaBlocked, refreshQuota, paymentsEnabled]);
 
   const loadDemo = () => {
     clearTimers();
@@ -539,7 +715,7 @@ function App() {
     setInputText(MOCK_CLAIM);
     setResult(null);
     setErrorMessage("");
-    setStep(0);
+    setAgentSteps({ sources: "pending", prosecution: "pending", defense: "pending", verdict: "pending" });
     setStatus("idle");
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
@@ -548,13 +724,13 @@ function App() {
     clearTimers();
     abortCurrentRequest();
     setStatus("idle");
-    setStep(0);
+    setAgentSteps({ sources: "pending", prosecution: "pending", defense: "pending", verdict: "pending" });
     setResult(null);
     setErrorMessage("");
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     const onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
     };
@@ -562,16 +738,45 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [submit]);
 
-  useEffect(() => () => {
+  React.useEffect(() => () => {
     clearTimers();
     abortCurrentRequest();
   }, []);
 
   return (
     <div style={{ minHeight: "100vh", background: TN.bg, color: TN.ink }}>
-      <Masthead theme={theme} onToggleTheme={toggleTheme} />
+      <Masthead
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        user={user}
+        onLogout={onLogout}
+        quota={quota}
+        onBilling={user && user.email !== "__guest__@truthnet.local" ? goBilling : null}
+        onHistory={user && user.email !== "__guest__@truthnet.local" && navigate
+          ? () => navigate("/history")
+          : null}
+        onQuotaClick={goBilling}
+      />
 
       <main className="max-w-6xl mx-auto px-6 py-10">
+        {activatingPlan && (
+          <div className="mb-6 p-4 tn-fade-up" style={{
+            background: TN.surfaceSoft, border: `1px solid ${TN.border}`,
+            fontFamily: "Inter, sans-serif", fontSize: 13, color: TN.ink2,
+          }}>
+            Activating your subscription… This may take up to 30 seconds after payment.
+          </div>
+        )}
+        <QuotaExceededBanner
+          quota={quota}
+          onUpgrade={goBilling}
+          onCheckout={paymentsEnabled ? handleCheckout : null}
+        />
+        {quota && !quota.exempt && (
+          <div className="mb-8 max-w-md">
+            <UsageMeter quota={quota} size="sm" />
+          </div>
+        )}
         <div className="grid gap-10 grid-cols-1 lg:grid-cols-[180px_1fr]">
           <LeftTOC status={status} />
 
@@ -583,13 +788,13 @@ function App() {
                 onChange={setInputText}
                 onSubmit={submit}
                 onLoadDemo={loadDemo}
-                status={status}
+                status={quotaBlocked ? "quota_blocked" : status}
               />
             </div>
 
             {(status === "loading" || status === "done") && (
               <div className="mt-8">
-                <PipelineStatus step={step} />
+                <PipelineStatus agentSteps={agentSteps} />
               </div>
             )}
 
@@ -601,8 +806,15 @@ function App() {
                 {/* Verdict + manipulation alert sit in a 2-col grid on xl screens.
                     On smaller screens the alert stacks beneath. */}
                 <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-8 items-start">
-                  <VerdictCard result={result} />
+                  <div>
+                    <VerdictCard result={result} />
+                    <PipelineWarnings warnings={result.pipeline_warnings} />
+                  </div>
                   <ManipulationAlert techniques={result.manipulation_techniques_detected} />
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <CopyResultButton claim={inputText} result={result} />
                 </div>
 
                 <div className="mt-12">
@@ -642,8 +854,10 @@ function App() {
 // PROSECUTION & DEFENSE
 // =========================================================================
 function ProsecutionDefense({ result }) {
-  const trueItems = result?.what_is_true ?? [];
-  const falseItems = result?.what_is_false ?? [];
+  const prosecutionBrief = result?.prosecution_brief;
+  const defenseBrief = result?.defense_brief;
+  const placeholder = "Agent did not return a brief for this claim.";
+
   return (
     <section className="scroll-mt-8">
       <H2 num="3">Prosecution & Defense — Agent Briefs</H2>
@@ -651,27 +865,27 @@ function ProsecutionDefense({ result }) {
         Agents B and C operate in parallel from opposing stances. Their findings — summarized
         below — are passed to Agent D for judgment.
       </p>
-      <div className="mt-6 grid md:grid-cols-2 gap-px" style={{ background: TN.border }}>
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-px" style={{ background: TN.border }}>
         <Brief
           who="Agent B" role="Prosecution"
           tone="var(--v-false-fg)" tint="var(--v-false-bg)"
           posture="Argues the claim is false or misleading"
-          findings={falseItems}
-          glyph="✗"
+          body={prosecutionBrief?.trim() ? prosecutionBrief : placeholder}
+          empty={!prosecutionBrief?.trim()}
         />
         <Brief
           who="Agent C" role="Defense"
           tone="var(--v-true-fg)" tint="var(--v-true-bg)"
           posture="Argues the claim has supportable elements"
-          findings={trueItems}
-          glyph="✓"
+          body={defenseBrief?.trim() ? defenseBrief : placeholder}
+          empty={!defenseBrief?.trim()}
         />
       </div>
     </section>
   );
 }
 
-function Brief({ who, role, tone, tint, posture, findings, glyph }) {
+function Brief({ who, role, tone, tint, posture, body, empty }) {
   return (
     <div style={{ background: TN.surface, padding: "20px 22px" }}>
       <div className="flex items-center justify-between">
@@ -686,23 +900,15 @@ function Brief({ who, role, tone, tint, posture, findings, glyph }) {
       <div className="mt-3" style={{ fontFamily: "Lora, serif", fontStyle: "italic", fontSize: 14.5, color: TN.ink2 }}>
         {posture}
       </div>
-      <ul className="mt-4 flex flex-col gap-2.5">
-        {findings.length === 0 && (
-          <li style={{ fontFamily: "Lora, serif", fontStyle: "italic", color: TN.muted, fontSize: 14 }}>
-            No findings of this kind were returned.
-          </li>
-        )}
-        {findings.map((f, i) => (
-          <li key={i} className="flex gap-2.5" style={{
-            fontFamily: "Lora, serif", fontSize: 15, lineHeight: 1.5, color: TN.ink,
-          }}>
-            <span style={{ color: tone, fontWeight: 700, fontSize: 15 }}>{glyph}</span>
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
+      <p className="mt-4" style={{
+        fontFamily: "Lora, serif", fontSize: 15, lineHeight: 1.55, color: empty ? TN.muted : TN.ink,
+        fontStyle: empty ? "italic" : "normal",
+      }}>
+        {body}
+      </p>
     </div>
   );
 }
 
-window.App = App;
+window.FactCheckApp = FactCheckApp;
+window.ErrorBoundary = ErrorBoundary;

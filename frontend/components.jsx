@@ -22,7 +22,7 @@ const TN = {
 const VERDICT_STYLE = {
   TRUE:           { fg: "var(--v-true-fg)",    bg: "var(--v-true-bg)",    label: "TRUE" },
   FALSE:          { fg: "var(--v-false-fg)",   bg: "var(--v-false-bg)",   label: "FALSE" },
-  MISLEADING:     { fg: "var(--v-warn-fg)",    bg: "var(--v-warn-bg)",    label: "MISLEADING" },
+  MISLEADING:     { fg: "var(--v-mislead-fg)", bg: "var(--v-mislead-bg)", label: "MISLEADING" },
   PARTIALLY_TRUE: { fg: "var(--v-warn-fg)",    bg: "var(--v-warn-bg)",    label: "PARTIALLY TRUE" },
   UNVERIFIABLE:   { fg: "var(--v-neutral-fg)", bg: "var(--v-neutral-bg)", label: "UNVERIFIABLE" },
   SATIRE:         { fg: "var(--v-neutral-fg)", bg: "var(--v-neutral-bg)", label: "SATIRE" },
@@ -59,6 +59,8 @@ function Rule({ className = "" }) {
 // =========================================================================
 function ChatInput({ value, onChange, onSubmit, onLoadDemo, status }) {
   const loading = status === "loading";
+  const quotaBlocked = status === "quota_blocked";
+  const disabled = loading || quotaBlocked;
   const chars = value.length;
   return (
     <div className="w-full">
@@ -74,7 +76,7 @@ function ChatInput({ value, onChange, onSubmit, onLoadDemo, status }) {
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          disabled={loading}
+          disabled={disabled}
           rows={5}
           placeholder="Paste any claim, headline, or social-media post here…"
           className="w-full resize-none outline-none px-5 py-4 bg-transparent"
@@ -86,17 +88,17 @@ function ChatInput({ value, onChange, onSubmit, onLoadDemo, status }) {
             fontStyle: value ? "normal" : "italic",
           }}
         />
-        <div className="flex items-center justify-between border-t px-4 py-2.5"
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t px-4 py-2.5"
              style={{ borderColor: TN.borderSoft, background: TN.surfaceSoft }}>
           <div className="flex items-center gap-3" style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: TN.muted }}>
             <span>{chars} characters</span>
             <span>·</span>
             <span>{value.trim() ? value.trim().split(/\s+/).length : 0} words</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onLoadDemo}
-              disabled={loading}
+              disabled={disabled}
               className="px-3 py-1.5 transition-colors disabled:opacity-40"
               style={{
                 fontFamily: "Inter, sans-serif", fontSize: 12, color: TN.ink2,
@@ -108,7 +110,7 @@ function ChatInput({ value, onChange, onSubmit, onLoadDemo, status }) {
             >[ Sample Claim ]</button>
             <button
               onClick={onSubmit}
-              disabled={loading || !value.trim()}
+              disabled={disabled || !value.trim()}
               className="px-4 py-1.5 transition-all disabled:opacity-40"
               style={{
                 fontFamily: "Inter, sans-serif", fontSize: 12, fontWeight: 600,
@@ -116,7 +118,7 @@ function ChatInput({ value, onChange, onSubmit, onLoadDemo, status }) {
                 letterSpacing: "0.04em",
               }}
             >
-              {loading ? "PROCESSING…" : "Submit for Fact-Check →"}
+              {loading ? "PROCESSING…" : quotaBlocked ? "Daily limit reached" : "Submit for Fact-Check →"}
             </button>
           </div>
         </div>
@@ -132,19 +134,19 @@ function ChatInput({ value, onChange, onSubmit, onLoadDemo, status }) {
 }
 
 // =========================================================================
-// PIPELINE STATUS — 4-step horizontal tracker
+// PIPELINE STATUS — live SSE step tracker
 // =========================================================================
-function PipelineStatus({ step }) {
-  const stages = [
-    { label: "Claim Extraction",     agent: "Agent A",      sec: "§1" },
-    { label: "Prosecution + Defense", agent: "Agents B + C", sec: "§2–3" },
-    { label: "Judgment",             agent: "Agent D",      sec: "§4" },
-    { label: "Verdict Compiled",     agent: "Output",       sec: "§5" },
+function PipelineStatus({ agentSteps }) {
+  const steps = [
+    { key: "sources", label: "Gathering sources", agent: "Agent A" },
+    { key: "prosecution", label: "Building prosecution case", agent: "Agent B" },
+    { key: "defense", label: "Building defense case", agent: "Agent C" },
+    { key: "verdict", label: "Reaching verdict", agent: "Agent D" },
   ];
 
-  const stateFor = (i) => {
-    if (step >= i + 1) return "done";
-    if (step === i) return "active";
+  const stepState = (key) => {
+    if (agentSteps?.[key] === "done") return "done";
+    if (agentSteps?.[key] === "active") return "active";
     return "pending";
   };
 
@@ -154,66 +156,126 @@ function PipelineStatus({ step }) {
       padding: "18px 22px",
       boxShadow: "var(--inset-shadow)",
     }}>
-      <div className="flex items-center justify-between mb-4">
-        <SectionLabel>Document Processing Timeline</SectionLabel>
-        <div style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11, color: TN.muted }}>
-          t = {(step * 4.2).toFixed(1)}s
-        </div>
-      </div>
-
-      <div className="relative grid grid-cols-4 gap-2">
-        {stages.map((s, i) => {
-          const st = stateFor(i);
+      <SectionLabel className="mb-4">Agent Progress</SectionLabel>
+      <ul className="flex flex-col gap-3">
+        {steps.map((s) => {
+          const st = stepState(s.key);
           const done = st === "done";
           const active = st === "active";
           return (
-            <div key={i} className="relative flex flex-col items-start">
-              {i < stages.length - 1 && (
-                <div className="absolute top-[10px] left-[24px] right-[-8px] h-px"
-                     style={{
-                       background: `repeating-linear-gradient(to right, ${done ? TN.ink : TN.border} 0 4px, transparent 4px 8px)`
-                     }} />
+            <li key={s.key} className="flex items-center gap-3">
+              {done ? (
+                <span style={{ width: 22, height: 22, borderRadius: 999, background: TN.ink, color: TN.bg,
+                  display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700 }}>✓</span>
+              ) : active ? (
+                <span className="tn-pulse" style={{ width: 22, height: 22, borderRadius: 999, background: TN.accent,
+                  boxShadow: `0 0 0 4px color-mix(in srgb, ${TN.accent} 18%, transparent)` }} />
+              ) : (
+                <span style={{ width: 22, height: 22, borderRadius: 999, border: `1px solid ${TN.border}`, background: TN.surface }} />
               )}
-              <div className="flex items-center gap-2 mb-2 relative z-10">
-                {done ? (
-                  <div style={{
-                    width: 20, height: 20, borderRadius: 999,
-                    background: TN.ink, color: TN.bg,
-                    display: "grid", placeItems: "center",
-                    fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: 700,
-                  }}>✓</div>
-                ) : active ? (
-                  <div className="tn-pulse" style={{
-                    width: 20, height: 20, borderRadius: 999,
-                    background: TN.accent,
-                    boxShadow: `0 0 0 4px color-mix(in srgb, ${TN.accent} 18%, transparent)`,
-                  }} />
-                ) : (
-                  <div style={{
-                    width: 20, height: 20, borderRadius: 999,
-                    border: `1px solid ${TN.border}`, background: TN.surface,
-                  }} />
-                )}
-                <span style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 10, color: TN.muted }}>
-                  {s.sec}
-                </span>
+              <div className="flex-1 min-w-0">
+                <div style={{ fontFamily: "Lora, serif", fontSize: 15, fontWeight: 600, color: done ? TN.muted : TN.ink }}>
+                  {s.label}
+                </div>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: TN.muted }}>
+                  {done ? "Complete" : active ? "In progress…" : "Pending"} · {s.agent}
+                </div>
               </div>
-              <div style={{
-                fontFamily: "Lora, serif", fontSize: 15, fontWeight: 600,
-                color: done ? TN.muted : TN.ink,
-                textDecoration: done ? "line-through" : "none",
-                lineHeight: 1.2,
-              }}>{s.label}</div>
-              <div style={{
-                fontFamily: "Inter, sans-serif", fontSize: 11, color: TN.muted, marginTop: 2,
-              }}>
-                {done ? "✓ " : active ? "⏳ " : "· "}{s.agent}
-              </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
+  );
+}
+
+function VerdictBadge({ verdict, verdictColor }) {
+  const key = (verdict || "UNVERIFIABLE").toUpperCase().replace(/\s+/g, "_");
+  const styled = VERDICT_STYLE[key] || VERDICT_STYLE.UNVERIFIABLE;
+  const colorMap = {
+    green: { bg: "var(--v-true-bg)", fg: "var(--v-true-fg)" },
+    red: { bg: "var(--v-false-bg)", fg: "var(--v-false-fg)" },
+    orange: { bg: "var(--v-mislead-bg)", fg: "var(--v-mislead-fg)" },
+    yellow: { bg: "var(--v-warn-bg)", fg: "var(--v-warn-fg)" },
+    amber: { bg: "var(--v-warn-bg)", fg: "var(--v-warn-fg)" },
+    gray: { bg: "var(--v-neutral-bg)", fg: "var(--v-neutral-fg)" },
+  };
+  const fromBackend = verdictColor && colorMap[verdictColor.toLowerCase()];
+  const bg = fromBackend?.bg || styled.bg;
+  const fg = fromBackend?.fg || styled.fg;
+  const label = styled.label || String(verdict || "UNVERIFIABLE").replace(/_/g, " ");
+  return (
+    <span style={{
+      display: "inline-block", padding: "6px 14px", borderRadius: 4,
+      background: bg, color: fg, border: `1px solid ${fg}`,
+      fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 700,
+      letterSpacing: "0.06em", textTransform: "capitalize",
+    }}>
+      {label.toLowerCase()}
+    </span>
+  );
+}
+
+function ConfidenceProgressBar({ score }) {
+  if (score === null || score === undefined || Number.isNaN(Number(score))) return null;
+  let normalized = Number(score);
+  if (normalized > 0 && normalized <= 1) normalized *= 100;
+  normalized = Math.max(0, Math.min(100, Math.round(normalized)));
+  return (
+    <div className="mt-4">
+      <div style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: TN.ink2, marginBottom: 6 }}>
+        Confidence: {normalized}%
+      </div>
+      <progress value={normalized} max={100} className="w-full h-2" style={{ accentColor: TN.accent }} />
+    </div>
+  );
+}
+
+function PipelineWarnings({ warnings }) {
+  if (!warnings || warnings.length === 0) return null;
+  return (
+    <div className="mt-4" style={{
+      background: "var(--v-warn-bg)",
+      border: `1px solid color-mix(in srgb, var(--v-warn-fg) 35%, transparent)`,
+      padding: "12px 16px",
+    }}>
+      <SectionLabel className="mb-2">Pipeline Warnings</SectionLabel>
+      <ul className="flex flex-col gap-1.5">
+        {warnings.map((w, i) => (
+          <li key={i} style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: TN.ink2 }}>{w}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CopyResultButton({ claim, result }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    const score = result?.confidence_score;
+    const normalized = score != null && score <= 1 ? Math.round(score * 100) : (score ?? "—");
+    const sources = (result?.sources || result?.top_sources || [])
+      .map((s) => s?.url).filter(Boolean).join(", ");
+    const text = [
+      `Claim: ${claim}`,
+      `Verdict: ${result?.verdict ?? "UNVERIFIABLE"} (${normalized}% confidence)`,
+      `Summary: ${result?.summary || result?.headline_summary || ""}`,
+      `Sources: ${sources || "none"}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <button type="button" onClick={handleCopy} className="px-3 py-1.5"
+      style={{ fontFamily: "Inter, sans-serif", fontSize: 12, background: TN.surface,
+               border: `1px solid ${TN.border}`, color: TN.ink2 }}>
+      {copied ? "Copied ✓" : "Copy result"}
+    </button>
   );
 }
 
@@ -240,7 +302,9 @@ function VerdictCard({ result }) {
     <section id="verdict" className="scroll-mt-8">
       <H2 num="1">Verdict</H2>
       <div className="mt-6">
-        <div className="flex flex-col md:flex-row gap-6 items-start">
+        <VerdictBadge verdict={verdict} verdictColor={result?.verdict_color} />
+        <ConfidenceProgressBar score={result?.confidence_score} />
+        <div className="flex flex-col md:flex-row gap-6 items-start mt-6">
           <div className="relative shrink-0" style={{
             background: v.bg, border: `2px solid ${v.fg}`, color: v.fg,
             padding: "18px 26px", transform: "rotate(-1.4deg)",
@@ -475,7 +539,7 @@ function SourceList({ sources }) {
           No external sources were cited by the agents.
         </p>
       ) : (
-        <ol className="mt-6 flex flex-col">
+        <ol className="mt-6 flex flex-col gap-3 w-full max-w-full">
           {sources.map((src, i) => <SourceItem key={i} idx={i+1} src={src} />)}
         </ol>
       )}
@@ -483,37 +547,97 @@ function SourceList({ sources }) {
   );
 }
 
+function sourceDomain(url) {
+  if (!url || typeof url !== "string") return "";
+  try {
+    const href = url.startsWith("http") ? url : `https://${url}`;
+    return new URL(href).hostname.replace(/^www\./, "");
+  } catch {
+    return url.split("/")[0] || url;
+  }
+}
+
+function sourceHref(url) {
+  if (!url || typeof url !== "string") return null;
+  return url.startsWith("http") ? url : `https://${url}`;
+}
+
 function SourceItem({ idx, src }) {
+  const source = src || {};
+  const title = source?.title ?? source?.url ?? "Unknown source";
+  const href = sourceHref(source?.url);
+  const domain = sourceDomain(source?.url);
   const tagColor = {
     debunks: "var(--v-false-fg)",
     claim: "var(--v-true-fg)",
     contextualizes: "var(--accent)",
-  }[src.supports] || TN.muted;
+  }[source?.supports] || TN.muted;
+
+  const cardInner = (
+    <>
+      <div className="flex items-center gap-2 mb-1">
+        {domain ? (
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}`}
+            alt=""
+            width={16}
+            height={16}
+            style={{ borderRadius: 2 }}
+          />
+        ) : null}
+        <span style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 10, color: TN.muted }}>
+          {domain || "source"}
+        </span>
+        {source?.supports ? (
+          <span style={{ marginLeft: "auto", fontFamily: "Inter, sans-serif", fontSize: 10,
+            color: tagColor, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            {source.supports}
+          </span>
+        ) : null}
+      </div>
+      <div style={{ fontFamily: "Lora, serif", fontSize: 16, color: TN.ink, lineHeight: 1.35 }}>
+        {title}
+      </div>
+      {typeof source?.snippet === "string" && source.snippet.trim() ? (
+        <p style={{
+          fontFamily: "Inter, sans-serif", fontSize: 12, color: TN.ink2, marginTop: 6, lineHeight: 1.45,
+          overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+        }}>
+          {source.snippet}
+        </p>
+      ) : null}
+      {href ? (
+        <span style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11, color: TN.accent, marginTop: 6, display: "block" }}>
+          {source?.url}
+        </span>
+      ) : (
+        <span style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: TN.muted, marginTop: 6, display: "block" }}>
+          No URL provided
+        </span>
+      )}
+    </>
+  );
+
   return (
-    <li className="grid py-3" style={{
-      gridTemplateColumns: "36px 1fr",
-      borderTop: `1px solid ${TN.borderSoft}`,
-      alignItems: "baseline", gap: 16,
-    }}>
-      <span style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 12, color: TN.muted }}>
+    <li className="py-3">
+      <span style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 12, color: TN.muted, display: "block", marginBottom: 8 }}>
         [{idx}]
       </span>
-      <div>
-        <div style={{ fontFamily: "Lora, serif", fontSize: 16, color: TN.ink }}>
-          {src.title}
-          <span style={{ marginLeft: 10, fontFamily: "Inter, sans-serif", fontSize: 11,
-                          color: tagColor, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            · {src.supports}
-          </span>
-        </div>
-        {/* BACKEND NOTE: mock data uses bare domains (e.g. "reuters.com/...").
-            If the backend returns full URLs (e.g. "https://reuters.com/..."), remove the prefix logic below. */}
-        <a href={src.url.startsWith("http") ? src.url : "https://" + src.url} target="_blank" rel="noopener noreferrer"
-           style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11.5,
-                    color: TN.accent, textDecoration: "underline", textUnderlineOffset: 3 }}>
-          {src.url}
+      {href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="block no-underline"
+           style={{
+             background: TN.surface, border: `1px solid ${TN.borderSoft}`, padding: "14px 16px",
+             color: "inherit", transition: "background 0.2s",
+           }}
+           onMouseEnter={(e) => { e.currentTarget.style.background = TN.surfaceSoft; }}
+           onMouseLeave={(e) => { e.currentTarget.style.background = TN.surface; }}>
+          {cardInner}
         </a>
-      </div>
+      ) : (
+        <div style={{ background: TN.surface, border: `1px solid ${TN.borderSoft}`, padding: "14px 16px" }}>
+          {cardInner}
+        </div>
+      )}
     </li>
   );
 }
@@ -558,6 +682,7 @@ function ManipulationAlert({ techniques }) {
 
 // expose
 Object.assign(window, {
-  ChatInput, PipelineStatus, VerdictCard, EvidencePanel, SourceList, ManipulationAlert,
+  ChatInput, PipelineStatus, VerdictCard, VerdictBadge, ConfidenceProgressBar,
+  EvidencePanel, SourceList, ManipulationAlert, PipelineWarnings, CopyResultButton,
   H2, SectionLabel, Rule, TN, VERDICT_STYLE,
 });
