@@ -17,13 +17,6 @@ REQUIRED_BASE_PACKAGES = [
     "uvicorn",
 ]
 
-OPTIONAL_GROUPS = {
-    "Streamlit demos": ["streamlit"],
-    "OpenAI starter demos": ["openai"],
-    "Data demos": ["numpy", "pandas", "sklearn"],
-    "Vision/heavy demos": ["torch", "transformers", "cv2", "ultralytics"],
-}
-
 PROVIDER_PACKAGES = {
     "anthropic": ["anthropic"],
     "gemini": ["google.genai"],
@@ -145,9 +138,6 @@ def main() -> int:
             check_imports(provider_packages(), "Required provider packages", required=True)
             and imports_ok
         )
-
-    for label, packages in OPTIONAL_GROUPS.items():
-        check_imports(packages, f"Optional: {label}", required=False)
 
     if env_ok and imports_ok:
         print("\nReady for backend mock/live execution.")

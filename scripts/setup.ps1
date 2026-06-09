@@ -16,9 +16,6 @@ if (-not (Test-Path ".env")) {
     Write-Host "Created .env from .env.example - ADD YOUR API KEYS before Saturday."
 }
 
-Write-Host "`nOptional: PyTorch CPU (large download)"
-Write-Host "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu"
-
 Write-Host "`nVerify:"
 Write-Host "  python scripts/verify_setup.py"
 Write-Host "`nRun demo UI:"
